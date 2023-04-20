@@ -44,7 +44,7 @@ public class Util {
 		// if id = 9, then (6 < 9 <= 2) = true
 		
 		// Task: given an identifier, id: check whether pred < id <= node
-		if (lower.compareTo(upper) < 0) {
+		/*if (lower.compareTo(upper) < 0) {
 			if (lower.compareTo(id) <= 0 && upper.compareTo(id) >= 0) {
 				return true;
 			}
@@ -54,9 +54,16 @@ public class Util {
 			}
 		}
 
-		return false;
+		return false;*/
 
+		if(upper.compareTo(lower) < 0) {
+			return lower.compareTo(id) <= 0 || id.compareTo(upper) <= 0;
+		}
+		return lower.compareTo(id) <= 0 && id.compareTo(upper) <= 0;
 	}
+
+
+
 	
 	public static List<String> toString(List<NodeInterface> list) throws RemoteException {
 		List<String> nodestr = new ArrayList<String>();

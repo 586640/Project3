@@ -64,23 +64,22 @@ public class MutualExclusion {
 		WANTS_TO_ENTER_CS = true;
 		
 		// start MutualExclusion algorithm
-		
 		// first, call removeDuplicatePeersBeforeVoting. A peer can hold/contain 2 replicas of a file. This peer will appear twice
-		removeDuplicatePeersBeforeVoting();
+		List<Message> peer = removeDuplicatePeersBeforeVoting();
 		// multicast the message to activenodes (hint: use multicastMessage)
-		multicastMessage(message,mutexqueue);
+		multicastMessage(message,peer);
 		// check that all replicas have replied (permission)
-		boolean permission = areAllMessagesReturned(queueack.size());
+		boolean permission = areAllMessagesReturned(Util.numReplicas);
 		if (permission) {
 			// if yes, acquireLock
 			acquireLock();
+			// node.broadcastUpdatetoPeers
+			node.broadcastUpdatetoPeers(updates);
+			// clear the mutexqueue
+			mutexqueue.clear();
 		}
-		// node.broadcastUpdatetoPeers
-		node.broadcastUpdatetoPeers(updates);
-		// clear the mutexqueue
-		mutexqueue.clear();
-		// return permission
 
+		// return permission
 		return permission;
 	}
 	
@@ -95,7 +94,7 @@ public class MutualExclusion {
 			// obtain a stub for each node from the registry
 			NodeInterface nodestub = Util.getProcessStub(m.getNodeName(),m.getPort());
 			// call onMutexRequestReceived()
-			nodestub.onMutexRequestReceived(m);
+			nodestub.onMutexRequestReceived(message);
 		}
 		
 	}
@@ -113,7 +112,7 @@ public class MutualExclusion {
 		
 		/* write if statement to transition to the correct caseid */
 		// caseid=0: Receiver is not accessing shared resource and does not want to (send OK to sender)
-		if(!CS_BUSY && !WANTS_TO_ENTER_CS){
+		if(!(CS_BUSY || WANTS_TO_ENTER_CS)){
 			caseid = 0;
 		}
 		// caseid=1: Receiver already has access to the resource (dont reply but queue the request)
@@ -164,7 +163,7 @@ public class MutualExclusion {
 				// check the clock of the sending process (note that the correct clock is in the message)
 				int sendingClock = message.getClock();
 				// own clock for the multicast message (note that the correct clock is in the message)
-				int ownClock = this.clock.getClock();
+				int ownClock = node.getMessage().getClock();
 				// compare clocks, the lowest wins
 
 				// if clocks are the same, compare nodeIDs, the lowest wins
@@ -211,7 +210,11 @@ public class MutualExclusion {
 			// obtain a stub for each node from the registry
 			NodeInterface nodestub = Util.getProcessStub(m.getNodeName(),m.getPort());
 			// call releaseLocks()
-			releaseLocks();
+			try {
+				nodestub.releaseLocks();
+			} catch (RemoteException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 	
@@ -219,13 +222,13 @@ public class MutualExclusion {
 		logger.info(node.getNodeName()+": size of queueack = "+queueack.size());
 		
 		// check if the size of the queueack is same as the numvoters
-		if(queueack.size() == (numvoters)) {
+		if(queueack.size() == numvoters) {
 			// clear the queueack
 			queueack.clear();
 			// return true if yes and false if no
 			return true;
 		}
-		
+		queueack.clear();
 		return false;
 	}
 	
